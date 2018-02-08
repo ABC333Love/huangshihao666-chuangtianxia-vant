@@ -333,6 +333,7 @@
   <!-- </scroll> -->
 </template>
 <script>
+  import assign from '@/mixins/assign.js'  // 兼容history模式 ios微信分享签名错误问题
   import Tab from '@/components/pro_tab/pro_tab'
   import Placeholder from '@/components/placeholder/placeholder'
   import xHeader from '@/components/x-header/x-header'
@@ -343,11 +344,12 @@
   import Confirms from '@/components/confirm/confirm'
   import { mapGetters, mapMutations } from 'vuex'
   import { Delivery } from '../../common/config/config.js'
-
+  
   const INIT = 1
   /* eslint-disable */
   export default {
     name: 'product',
+    mixins: [assign],
     data () {
       return {
         member_c: true,
@@ -417,7 +419,7 @@
       this.member_c = storage.get('member_class') === '2' ? '' : '1'
       this.id = this.$route.params.id
       // 获得产品数据
-      this._getProductDesc(this.id)
+      this._getProductDesc(this.id, this._wechatInit)
       // 清除type这个storage
       storage.remove('type')
       // 获取购物车商品数量
@@ -425,52 +427,6 @@
       this.submitFlag = false
       this.goods_storage = false
     },
-    /* mounted () {
-      // 分享
-      setTimeout(() => {
-        let url = encodeURIComponent('http://ctx.17link.cc/product/265')
-        this.$http.get(`api/wechatshare?url1=${url}`)
-        .then( res => {
-          console.log(res.data)
-          let js_sdk = res.data
-          wx.config({
-            debug: true, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
-            appId: js_sdk.appId, // 必填，公众号的唯一标识
-            timestamp: js_sdk.timestamp, // 必填，生成签名的时间戳
-            nonceStr: js_sdk.nonceStr, // 必填，生成签名的随机串
-            signature: js_sdk.signature, // 必填，签名，见附录1
-            jsApiList: ["onMenuShareTimeline", "onMenuShareAppMessage"] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
-          });
-          wx.ready(function() {
-            // 分享到朋友圈
-            wx.onMenuShareTimeline({
-              title: this.product_obj.goods_jingle, // 分享标题
-              desc: this.product_obj.goods_name,
-              link: window.location.href, // 分享链接，该链接域名或路径必须与当前页面对应的公众号JS安全域名一致
-              imgUrl: this.goods_image[1], // 分享图标
-              success: function() {
-                // 用户确认分享后执行的回调函数
-                console.log("朋友圈分享成功");
-              }
-            });
-            //  分享给好友
-            wx.onMenuShareAppMessage({
-              title: this.product_obj.goods_jingle, // 分享标题
-              desc: this.product_obj.goods_name,
-              link: window.location.href,
-              imgUrl: this.goods_image[1],
-              success: function() {
-                console.log("分享给朋友成功");
-              }
-            })
-          })
-        })
-        .catch( err => {
-          console.log(err)
-        })
-      }, 50);
-      
-    }, */
     methods: {
       onInput (value) {
         if (value === '完成') {
@@ -549,23 +505,6 @@
         if (this.count < 1) {
           this.count = 1
         }
-      },
-      // 下拉刷新的放手时回调函数
-      pullEnd (pos) {
-        this.pullicon = false
-        this.$refs.productWrapper.style.top = '30px'
-        setTimeout(() => {
-          this._getProductDesc(this.id, () => {
-            this.pullDownFlag = false
-            this.$refs.productWrapper.style.top = 0
-            // 加载后的页面返回原始的时候加个过渡，需要给上部的滑块也加个过渡 对应的.slide1
-            this.$refs.productWrapper.style.transition = 'all .5s'
-            // 为了防止过渡上滑的时候 pullicon已经变回机器猫了
-            setTimeout(() => {
-              this.pullicon = true
-            }, 500)
-          })
-        }, 2000)
       },
       // 滑动的时候直接给我pos值，来判断下拉的icon变化
       scroll (pos) {
@@ -707,6 +646,54 @@
       },
       toLive (url) {
         window.location.href = url
+      },
+      _wechatInit () {
+        console.log('wechat init')
+        let url = encodeURIComponent(window.location.href.split('#')[0])
+        this.$http.get(`api/wechatshare?url1=${url}`)
+        .then( res => {
+          let js_sdk = res.data
+          const that = this
+          wx.config({
+            debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+            appId: js_sdk.appId, // 必填，公众号的唯一标识
+            timestamp: js_sdk.timestamp, // 必填，生成签名的时间戳
+            nonceStr: js_sdk.nonceStr, // 必填，生成签名的随机串
+            signature: js_sdk.signature, // 必填，签名，见附录1
+            jsApiList: ["onMenuShareTimeline", "onMenuShareAppMessage"] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+          });
+          wx.ready(function() {
+            console.log(that.product_obj.goods_jingle,that.product_obj.goods_name)
+            const title = that.product_obj.goods_jingle  // 分享标题
+            const desc = that.product_obj.goods_name   // 分享描述
+            const link = window.location.href   // 分享链接
+            const imgUrl = that.goods_image[1]   // 分享图片
+            // 分享到朋友圈
+            wx.onMenuShareTimeline({
+              title: title, // 分享标题
+              desc: desc,
+              link: link, // 分享链接，该链接域名或路径必须与当前页面对应的公众号JS安全域名一致
+              imgUrl: imgUrl, // 分享图标
+              success: function() {
+                // 用户确认分享后执行的回调函数
+                console.log("朋友圈分享成功");
+              }
+            });
+            //  分享给好友
+            wx.onMenuShareAppMessage({
+              title: title, // 分享标题
+              desc: desc,
+              link: link,
+              imgUrl: imgUrl,
+              success: function() {
+                console.log("分享给朋友成功");
+              }
+            })
+          })
+        })
+        .catch( err => {
+          console.log(err)
+        })
       },
       _getProductDesc (id, cb) {
         this.$http.get('/api/goods/detail', {
@@ -856,7 +843,7 @@
           this.returnFlag = false
           this.goods_image = []
           this.swiper.slideTo(1)
-          this._getProductDesc(this.id)
+          this._getProductDesc(this.id, this._wechatInit)
           this._getShopCart()
         }
       },
